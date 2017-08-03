@@ -1,21 +1,32 @@
 package web
 
 import (
+	"html/template"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os/exec"
 	"strings"
-	"text/template"
 
 	"github.com/avelino/vim-bootstrap/generate"
 )
 
 const (
-	emtyStr  = ""
-	git      = "git"
-	checkout = "checkout"
-	force    = "-f"
-	pull     = "pull"
+	git       = "git"
+	checkout  = "checkout"
+	force     = "-f"
+	pull      = "pull"
+	submodule = "submodule"
+	update    = "update"
+	remote    = "--remote"
+	merge     = "--merge"
+	add       = "add"
+	tmpl      = "template"
+	commit    = "commit"
+	message   = "-m \"update template \""
+	push      = "push"
+	origin    = "origin"
+	master    = "master"
 )
 
 func listLangs() (list []string) {
@@ -27,10 +38,22 @@ func listLangs() (list []string) {
 	return
 }
 
+func HashCommit() string {
+	out, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output()
+	if err != nil {
+		log.Printf("generate: %q occurs while getting vim-bootstrap version\n", err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
 func HandleHook(w http.ResponseWriter, r *http.Request) {
 	// Update repo
 	exec.Command(git, checkout, force).Output()
 	exec.Command(git, pull).Output()
+	exec.Command(git, submodule, update, remote, merge).Output()
+	exec.Command(git, add, tmpl).Output()
+	exec.Command(git, commit, message).Output()
+	exec.Command(git, push, origin, master).Output()
 
 	w.Write([]byte("Done!\n"))
 }
@@ -38,6 +61,7 @@ func HandleHook(w http.ResponseWriter, r *http.Request) {
 func HandleHome(w http.ResponseWriter, r *http.Request) {
 	Body := make(map[string]interface{})
 	Body["Langs"] = listLangs()
+	Body["Version"] = HashCommit()
 
 	t := template.Must(template.ParseFiles("./template/index.html"))
 	t.Execute(w, Body)
@@ -51,6 +75,7 @@ func HandleGenerate(w http.ResponseWriter, r *http.Request) {
 	obj := generate.Object{
 		Language: langs,
 		Editor:   editor,
+		Version:  HashCommit(),
 	}
 	gen := generate.Generate(&obj)
 
